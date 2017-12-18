@@ -29,7 +29,7 @@ public class GoogleMapController {
 	}
 	
 	@RequestMapping(value="/gethousingcomplexes",method=RequestMethod.POST)
-	public  List<LocationDetails> getHousingComplexes(@RequestBody LatLng location ) {
+	public  List<LocationDetails> getHousingComplexes(@RequestBody LatLng location ) throws InterruptedException {
 		
 		return service.getHousingComplexes(location);
 	}
