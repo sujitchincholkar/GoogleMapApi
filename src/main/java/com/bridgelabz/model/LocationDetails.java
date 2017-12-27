@@ -2,9 +2,9 @@ package com.bridgelabz.model;
 
 public class LocationDetails {
 	
-	String name;
-	String address;
-	LatLng location;
+	private String name;
+	private String address;
+	private LatLng location;
 	
 	public String getName() {
 		return name;

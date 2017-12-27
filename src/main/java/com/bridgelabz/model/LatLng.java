@@ -2,9 +2,9 @@ package com.bridgelabz.model;
 
 public class LatLng {
 	
-	double lat;
+	private double lat;
 	
-	double lng;
+	private double lng;
 	
 	public LatLng() {
 		
