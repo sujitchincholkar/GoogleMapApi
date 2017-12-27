@@ -7,6 +7,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class GoogleMapApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(GoogleMapApplication.class, args);
+		SpringApplication.run(GoogleMapApplication.class);
 	}
 }

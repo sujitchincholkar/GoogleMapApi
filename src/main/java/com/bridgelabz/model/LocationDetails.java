@@ -1,9 +1,11 @@
 package com.bridgelabz.model;
 
 public class LocationDetails {
+	
 	String name;
 	String address;
 	LatLng location;
+	
 	public String getName() {
 		return name;
 	}
