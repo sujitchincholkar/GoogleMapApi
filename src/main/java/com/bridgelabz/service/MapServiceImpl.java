@@ -11,18 +11,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import com.bridgelabz.model.LatLng;
 import com.bridgelabz.model.LocationDetails;
+import com.bridgelabz.util.ResponseJsonUtil;
 import com.bridgelabz.util.RestCallUtility;
 import com.fasterxml.jackson.databind.JsonNode;
-
 
 public class MapServiceImpl implements MapService {
 
 	@Value("${googlemap.key}")
 	private String key;
-	
+
 	@Autowired
 	RestCallUtility restCallUtil;
-	
+
 	/**
 	 * @param source
 	 * @param destination
@@ -40,9 +40,9 @@ public class MapServiceImpl implements MapService {
 
 			JsonNode responseJson = restCallUtil.getResponse(mapApiUrl);
 
-			int distanceInMeters = responseJson.get("rows").get(0).get("elements").get(0)
-					                           .get("distance").get("value").asInt();
-			 
+			int distanceInMeters = responseJson.get("rows").get(0).get("elements").get(0).get("distance").get("value")
+					.asInt();
+
 			distance.put("distance", (int) distanceInMeters);
 
 		} catch (IOException e) {
@@ -62,44 +62,37 @@ public class MapServiceImpl implements MapService {
 		String location = currentLocation.getLat() + "," + currentLocation.getLng();
 
 		String mapApiUrl = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=" + location
-				+ "&radius=400&keyword=Apartment|CHS&strictbounds&key=" + key;
+				+ "&radius=900&keyword=Apartment|Society|CHS|Complex&strictbounds&key=" + key;
 
 		List<LocationDetails> housingComplexes = new ArrayList<>();
+
+		ResponseJsonUtil responseUtil = new ResponseJsonUtil();
+		int counter = 0;
 		try {
-		
+
 			JsonNode responseJson = restCallUtil.getResponse(mapApiUrl);
 
 			JsonNode results = responseJson.get("results");
+			housingComplexes.addAll(responseUtil.getHousingComplex(results));
 
 			JsonNode nextPageResults = null;
+			if (responseJson.get("next_page_token") != null) {
+				String nextPageToken = responseJson.get("next_page_token").asText();
 
-			/*
-			 * if(responseJson.get("next_page_token")!=null){
-			 * 
-			 * String nextPageToken=responseJson.get("next_page_token").asText();
-			 * String nextPageUrl=mapApiUrl+"&pagetoken="+nextPageToken;
-			
-			 * nextPageResults=restCallUtil.getResponse("results");
-			 * System.out.println(nextPageResults); }
-			 */
+				while (nextPageToken != null) {
+					counter++;
+					String nextPageUrl = mapApiUrl + "&pagetoken=" + nextPageToken;
+					// two seconds delay required for consecutive requests
+					Thread.sleep(2000);
+					JsonNode nextPageResponse = restCallUtil.getResponse(nextPageUrl);
+					nextPageResults = nextPageResponse.get("results");
+					housingComplexes.addAll(responseUtil.getHousingComplex(nextPageResults));
 
-			for (int i = 0; i < results.size(); i++) {
-				LocationDetails complex = new LocationDetails();
-
-				double lat = results.get(i).get("geometry").get("location").get("lat").asDouble();
-				double lng = results.get(i).get("geometry").get("location").get("lng").asDouble();
-
-				LatLng latlng = new LatLng(lat, lng);
-				complex.setName(results.get(i).get("name").asText());
-				complex.setAddress(results.get(i).get("vicinity").asText());
-				complex.setLocation(latlng);
-
-				housingComplexes.add(complex);
-
-				if ((results.size() - 1) == i && nextPageResults != null) {
-					i = 0;
-					results = nextPageResults;
-					nextPageResults = null;
+					if (nextPageResponse.get("next_page_token") != null) {
+						nextPageToken = nextPageResponse.get("next_page_token").asText();
+					} else {
+						nextPageToken = null;
+					}
 				}
 			}
 
@@ -108,6 +101,7 @@ public class MapServiceImpl implements MapService {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		System.out.println(housingComplexes.size() + " " + counter);
 		return housingComplexes;
 	}
 
@@ -124,9 +118,9 @@ public class MapServiceImpl implements MapService {
 		for (int radius = 500; radius <= 4000; radius += 1000) {
 
 			String mapApiUrl = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?" + "location=" + location
-								+ "&radius=" + radius + "&types=sublocality_level_1&key=" + key;
-	
-			JsonNode responseJson=null;
+					+ "&radius=" + radius + "&types=sublocality_level_1&key=" + key;
+
+			JsonNode responseJson = null;
 			try {
 				responseJson = restCallUtil.getResponse(mapApiUrl);
 			} catch (IOException e) {
@@ -158,7 +152,7 @@ public class MapServiceImpl implements MapService {
 			}
 
 		}
-		
+
 		return nearByPlaces;
 	}
 
@@ -178,13 +172,12 @@ public class MapServiceImpl implements MapService {
 			searchString = words[i] + "+" + searchString;
 			i++;
 		}
-		String mapApiUrl = "https://maps.googleapis.com/maps/api/geocode/json?address=" 
-							+ searchString + "&key=" + key;
+		String mapApiUrl = "https://maps.googleapis.com/maps/api/geocode/json?address=" + searchString + "&key=" + key;
 
 		JsonNode responseJson = null;
 
 		try {
-			responseJson =  restCallUtil.getResponse(mapApiUrl);
+			responseJson = restCallUtil.getResponse(mapApiUrl);
 
 			JsonNode results = responseJson.get("results");
 
@@ -192,17 +185,15 @@ public class MapServiceImpl implements MapService {
 			double lng = results.get(0).get("geometry").get("location").get("lng").asDouble();
 
 			String location = lat + "," + lng;
-
 			String geoCodeUrl = "https://maps.googleapis.com/maps/api/geocode/json?&types=postal_code&latlng="
 					+ location + "&keyword=" + words[0] + "&rankBy=keyword&key=" + key;
 
-			responseJson =  restCallUtil.getResponse(geoCodeUrl);
-			
+			responseJson = restCallUtil.getResponse(geoCodeUrl);
+
 			int flag = 0;
 			for (int k = 0; k < responseJson.get("results").size(); k++) {
 
 				results = responseJson.get("results").get(k);
-
 				for (int index = 0; index < results.get("types").size(); index++) {
 					if (results.get("types").get(index).asText().equals("postal_code")) {
 						flag = 1;
@@ -217,17 +208,17 @@ public class MapServiceImpl implements MapService {
 			for (int j = 0; j < record.size(); j++) {
 
 				for (int index = 0; index < record.get(j).get("types").size(); index++) {
-					String type=record.get(j).get("types").get(index).asText();
-					
+					String type = record.get(j).get("types").get(index).asText();
+
 					if (type.equals("postal_code")) {
 						placeInfo.put("zipcode", record.get(j).get("long_name").asText());
-						
+
 					} else if (type.equals("sublocality_level_1")) {
 						placeInfo.put("sublocality_level_1", record.get(j).get("long_name").asText());
-						
+
 					} else if (type.equals("locality")) {
 						placeInfo.put("locality", record.get(j).get("long_name").asText());
-						
+
 					} else if (type.equals("country")) {
 						placeInfo.put("country", record.get(j).get("long_name").asText());
 					}
@@ -240,7 +231,5 @@ public class MapServiceImpl implements MapService {
 		}
 		return placeInfo;
 	}
-	
-	
 
 }
